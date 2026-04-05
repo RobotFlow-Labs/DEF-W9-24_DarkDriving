@@ -1,0 +1,42 @@
+# DarkDriving -- 3-Layer Docker Image
+# Layer 1: anima-base (ros:jazzy + CycloneDDS + uv)
+# Layer 2: anima-serve (FastAPI + AnimaNode + HF weights)
+# Layer 3: this module (dark_driving package + serve endpoint)
+
+FROM ghcr.io/robotflow-labs/anima-serve:jazzy AS base
+
+# Module metadata
+LABEL org.opencontainers.image.title="anima-darkdriving"
+LABEL org.opencontainers.image.description="DarkDriving low-light enhancement for autonomous driving"
+LABEL org.opencontainers.image.version="0.1.0"
+
+# Install module dependencies
+WORKDIR /app
+COPY pyproject.toml .
+RUN uv pip install --system --no-cache-dir -e ".[dev]" \
+    --extra-index-url https://download.pytorch.org/whl/cu128 || true
+
+# Copy module code
+COPY src/ src/
+COPY configs/ configs/
+COPY scripts/ scripts/
+COPY anima_module.yaml .
+
+# Environment
+ENV ANIMA_MODULE_NAME=project_darkdriving
+ENV ANIMA_MODULE_VERSION=0.1.0
+ENV ANIMA_HF_REPO=ilessio-aiflowlab/project_darkdriving-checkpoint
+ENV ANIMA_DEVICE=auto
+ENV ANIMA_WEIGHT_FORMAT=auto
+ENV ANIMA_SERVE_PORT=8080
+ENV ANIMA_WEIGHT_DIR=/data/weights
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:${ANIMA_SERVE_PORT}/health || exit 1
+
+# Expose port
+EXPOSE ${ANIMA_SERVE_PORT}
+
+# Default command: start serving
+CMD ["python", "-m", "anima_serve.cli", "--module", "dark_driving.serve:DarkDrivingNode"]

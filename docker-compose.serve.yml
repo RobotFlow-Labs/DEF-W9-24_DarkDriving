@@ -1,0 +1,65 @@
+# DarkDriving Docker Compose -- Serving Profiles
+# Usage:
+#   docker compose -f docker-compose.serve.yml --profile serve up -d
+#   docker compose -f docker-compose.serve.yml --profile api up -d
+#   docker compose -f docker-compose.serve.yml --profile ros2 up -d
+#   docker compose -f docker-compose.serve.yml --profile test run --rm test
+
+services:
+  darkdriving:
+    build:
+      context: .
+      dockerfile: Dockerfile.serve
+    image: anima-darkdriving:latest
+    env_file: .env.serve
+    ports:
+      - "${ANIMA_SERVE_PORT:-8080}:8080"
+    volumes:
+      - /data/weights:/data/weights
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    network_mode: host
+    restart: unless-stopped
+    profiles:
+      - serve
+      - api
+
+  darkdriving-ros2:
+    build:
+      context: .
+      dockerfile: Dockerfile.serve
+    image: anima-darkdriving:latest
+    env_file: .env.serve
+    environment:
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - /data/weights:/data/weights
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    network_mode: host
+    restart: unless-stopped
+    profiles:
+      - ros2
+      - serve
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.serve
+    image: anima-darkdriving:latest
+    command: ["python", "-m", "pytest", "tests/", "-x", "-v"]
+    volumes:
+      - ./tests:/app/tests
+    profiles:
+      - test
