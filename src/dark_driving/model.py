@@ -124,12 +124,14 @@ class IlluminationGuidedMSA(nn.Module):
         )
         k = k + illu  # additive illumination guidance
 
-        # Transposed attention: (d, H*W) x (H*W, d) -> (d, d) — small!
-        attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+        # Transposed attention in fp32 to avoid fp16 overflow
+        # (d, H*W) x (H*W, d) sums 262K elements — exceeds fp16 max
+        q_f = q.float()
+        k_f = k.float()
+        v_f = v.float()
+        attn = torch.matmul(q_f, k_f.transpose(-2, -1)) * self.scale
         attn = f.softmax(attn, dim=-1)
-
-        # (d, d) x (d, H*W) -> (d, H*W)
-        out = torch.matmul(attn, v)
+        out = torch.matmul(attn, v_f).to(q.dtype)
         out = rearrange(
             out, "b heads d (h w) -> b (heads d) h w",
             h=h, w=w,
@@ -265,10 +267,12 @@ class SNRAwareBlock(nn.Module):
             three=3, heads=self.num_heads,
         )
         q, k, v = qkv[0], qkv[1], qkv[2]
+        # fp32 attention to avoid fp16 overflow on large spatial dims
+        q_f, k_f, v_f = q.float(), k.float(), v.float()
         attn = f.softmax(
-            torch.matmul(q, k.transpose(-2, -1)) * self.scale, dim=-1
+            torch.matmul(q_f, k_f.transpose(-2, -1)) * self.scale, dim=-1
         )
-        long_out = torch.matmul(attn, v)
+        long_out = torch.matmul(attn, v_f).to(q.dtype)
         long_out = rearrange(
             long_out, "b heads d (h w) -> b (heads d) h w", h=h, w=w
         )

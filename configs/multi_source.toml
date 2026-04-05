@@ -22,7 +22,7 @@ gamma_range = [2.0, 5.0]
 noise_std = 0.02
 
 [training]
-batch_size = "auto"
+batch_size = 4
 learning_rate = 0.001
 epochs = 100
 optimizer = "adam"
@@ -32,7 +32,7 @@ weight_decay = 0.0
 scheduler = "cosine"
 warmup_ratio = 0.05
 min_lr = 1e-6
-precision = "fp16"
+precision = "fp32"
 gradient_accumulation = 1
 max_grad_norm = 1.0
 seed = 42
@@ -40,7 +40,7 @@ seed = 42
 [loss]
 name = "l1"
 l1_weight = 1.0
-ssim_weight = 0.1
+ssim_weight = 0.0
 
 [augmentation]
 random_crop = true

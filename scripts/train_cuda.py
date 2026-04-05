@@ -124,16 +124,10 @@ def train_cuda(
     print(f"[BATCH] batch_size={batch_size}")
     print(f"[DATA] train={len(loaders['train'].dataset)} val={len(loaders['val'].dataset)}")
 
-    # Loss — use fused CUDA loss when possible
-    use_fused_loss = loss_cfg.get("lpips_weight", 0.0) == 0.0 and \
-                     loss_cfg.get("perceptual_weight", 0.0) == 0.0 and \
-                     loss_cfg.get("charbonnier_weight", 0.0) == 0.0
+    # Use standard loss (fused CUDA loss has CUDAGraph conflicts at fp32)
+    use_fused_loss = False
     ssim_weight = loss_cfg.get("ssim_weight", 0.0)
-
-    if use_fused_loss:
-        print(f"[LOSS] Fused CUDA L1+SSIM (ssim_weight={ssim_weight})")
-    else:
-        print("[LOSS] Standard combined loss (has non-fusable components)")
+    print(f"[LOSS] Standard combined loss (L1 weight={loss_cfg.get('l1_weight', 1.0)})")
 
     loss_fn = build_loss(loss_cfg).to(device)
 
