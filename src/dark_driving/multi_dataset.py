@@ -123,28 +123,41 @@ class NuScenesLowLightDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
+        # Robust loading — skip corrupt images
+        for offset in range(min(10, len(self.image_paths))):
+            try:
+                real_idx = (idx + offset) % len(self.image_paths)
+                return self._load_sample(real_idx)
+            except Exception:
+                continue
+        # Last resort: return black image
+        h, w = self.input_size
+        blank = torch.zeros(3, h, w)
+        return {
+            "night": blank, "day": blank,
+            "filename": "fallback", "source": "fallback",
+        }
+
+    def _load_sample(self, idx: int) -> dict[str, Any]:
         img = Image.open(self.image_paths[idx]).convert("RGB")
         h, w = self.input_size
         img = img.resize((w, h), Image.BILINEAR)
         day_np = np.array(img, dtype=np.float32) / 255.0
 
         if self.mode == "night":
-            # Real night image — no ground truth
             night_t = torch.from_numpy(day_np).permute(2, 0, 1).contiguous()
             return {
                 "night": night_t,
-                "day": night_t,  # self-reference for no-ref metrics
+                "day": night_t,
                 "filename": Path(self.image_paths[idx]).name,
                 "source": "nuscenes_night",
             }
 
-        # Synthetic darkening for day images
         gamma = np.random.uniform(*self.gamma_range)
         night_np = np.power(np.clip(day_np, 1e-8, 1.0), gamma)
         noise = np.random.normal(0, self.noise_std, night_np.shape)
         night_np = np.clip(night_np + noise, 0.0, 1.0).astype(np.float32)
 
-        # Augmentation
         if self.augment:
             night_np, day_np = self._augment(night_np, day_np)
 
@@ -204,6 +217,20 @@ class KITTILowLightDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
+        for offset in range(min(10, len(self.image_paths))):
+            try:
+                real_idx = (idx + offset) % len(self.image_paths)
+                return self._load_sample(real_idx)
+            except Exception:
+                continue
+        h, w = self.input_size
+        blank = torch.zeros(3, h, w)
+        return {
+            "night": blank, "day": blank,
+            "filename": "fallback", "source": "fallback",
+        }
+
+    def _load_sample(self, idx: int) -> dict[str, Any]:
         img = Image.open(self.image_paths[idx]).convert("RGB")
         h, w = self.input_size
         img = img.resize((w, h), Image.BILINEAR)
