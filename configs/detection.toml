@@ -1,0 +1,38 @@
+# DarkDriving -- Downstream detection evaluation config
+# Evaluate enhanced images with YOLOv11 (2D) and BEVDepth/CRN (3D)
+
+[model]
+name = "yolov11"
+# 2D detection model for downstream evaluation
+weights = "/mnt/forge-data/models/yolo11n.pt"
+conf_threshold = 0.25
+iou_threshold = 0.45
+classes = ["car"]
+
+[model_3d]
+name = "bevdepth"
+# 3D detection (optional, requires nuScenes-pretrained checkpoint)
+weights = "/mnt/forge-data/models/bevdepth/best.pth"
+
+[data]
+dataset = "darkdriving"
+root = "/mnt/forge-data/datasets/darkdriving/"
+input_size = [640, 640]       # YOLOv11 native input
+test_split = "test"
+num_workers = 4
+pin_memory = true
+
+[evaluation]
+# 2D detection metrics
+metrics_det2d = ["ap50", "ap50_90"]
+# 3D detection metrics (optional)
+metrics_det3d = ["ap", "ate", "aoe"]
+# Per-condition breakdown
+breakdown_by_lighting = true
+breakdown_by_road_type = true
+# 6 road types: multi_lane, single_lane, curved, open, t_intersection, intersection
+# 12 lighting conditions
+
+[output]
+report_dir = "/mnt/artifacts-datai/reports/project_darkdriving"
+format = ["json", "markdown"]

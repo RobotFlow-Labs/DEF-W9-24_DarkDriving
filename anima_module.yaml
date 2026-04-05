@@ -1,0 +1,81 @@
+name: project_darkdriving
+version: "0.1.0"
+paper:
+  title: "DarkDriving: A Real-World Day and Night Aligned Dataset for Autonomous Driving in the Dark Environment"
+  arxiv: "2603.18067"
+  venue: "ICRA 2026"
+  type: "dataset_benchmark"
+
+description: >
+  Benchmark module for low-light image enhancement in autonomous driving.
+  Evaluates Retinexformer, SNR-Aware, LLFormer and other enhancement methods
+  on the DarkDriving dataset (9,538 aligned day-night pairs) with downstream
+  2D/3D detection evaluation.
+
+package: dark_driving
+
+capabilities:
+  - low_light_enhancement
+  - image_quality_assessment
+  - object_detection_2d
+  - benchmark_evaluation
+
+datasets:
+  required:
+    - name: darkdriving
+      path: /mnt/forge-data/datasets/darkdriving/
+      size_gb: 30
+  on_disk:
+    - name: nuscenes
+      path: /mnt/forge-data/datasets/nuscenes/
+    - name: coco
+      path: /mnt/forge-data/datasets/coco/
+
+models:
+  on_disk:
+    - name: yolo11n
+      path: /mnt/forge-data/models/yolo11n.pt
+  required:
+    - name: retinexformer
+      path: /mnt/forge-data/models/retinexformer/
+    - name: bevdepth
+      path: /mnt/forge-data/models/bevdepth/
+    - name: crn
+      path: /mnt/forge-data/models/crn/
+
+api:
+  serve_port: 8080
+  endpoints:
+    - path: /health
+      method: GET
+    - path: /ready
+      method: GET
+    - path: /predict
+      method: POST
+      description: "Enhance a low-light driving image"
+
+docker:
+  image: anima-darkdriving
+  base: ghcr.io/robotflow-labs/anima-serve:jazzy
+  gpu: true
+
+ros2:
+  subscriptions:
+    - topic: /camera/night/image_raw
+      type: sensor_msgs/msg/Image
+  publications:
+    - topic: /darkdriving/enhanced
+      type: sensor_msgs/msg/Image
+    - topic: /darkdriving/metrics
+      type: std_msgs/msg/String
+
+artifacts:
+  checkpoints: /mnt/artifacts-datai/checkpoints/project_darkdriving/
+  logs: /mnt/artifacts-datai/logs/project_darkdriving/
+  tensorboard: /mnt/artifacts-datai/tensorboard/project_darkdriving/
+  exports: /mnt/artifacts-datai/exports/project_darkdriving/
+  reports: /mnt/artifacts-datai/reports/project_darkdriving/
+
+hf:
+  org: ilessio-aiflowlab
+  repo: project_darkdriving-checkpoint

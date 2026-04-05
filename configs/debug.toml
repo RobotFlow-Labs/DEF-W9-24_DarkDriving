@@ -1,0 +1,70 @@
+# DarkDriving -- Debug / Smoke test config
+# Quick 2-epoch run with tiny batch for validation
+
+[model]
+name = "retinexformer"
+in_channels = 3
+out_channels = 3
+embed_dim = 16
+num_blocks = 2
+num_heads = 2
+
+[data]
+dataset = "darkdriving"
+root = "/mnt/forge-data/datasets/darkdriving/"
+input_size = [256, 256]
+train_split = "train"
+test_split = "test"
+num_workers = 2
+pin_memory = false
+
+[training]
+batch_size = 2
+learning_rate = 0.001
+epochs = 2
+optimizer = "adam"
+beta1 = 0.9
+beta2 = 0.999
+weight_decay = 0.0
+scheduler = "cosine"
+warmup_ratio = 0.05
+min_lr = 1e-6
+precision = "fp32"
+gradient_accumulation = 1
+max_grad_norm = 1.0
+seed = 42
+
+[loss]
+name = "l1"
+l1_weight = 1.0
+ssim_weight = 0.0
+lpips_weight = 0.0
+
+[augmentation]
+random_crop = false
+crop_size = [256, 256]
+random_rotation = false
+rotation_degrees = 0
+horizontal_flip = false
+flip_prob = 0.0
+
+[checkpoint]
+output_dir = "/mnt/artifacts-datai/checkpoints/project_darkdriving_debug"
+save_every_n_steps = 10
+keep_top_k = 1
+metric = "val_psnr"
+mode = "max"
+
+[early_stopping]
+enabled = false
+patience = 5
+min_delta = 0.01
+
+[logging]
+log_dir = "/mnt/artifacts-datai/logs/project_darkdriving_debug"
+tensorboard_dir = "/mnt/artifacts-datai/tensorboard/project_darkdriving_debug"
+
+[evaluation]
+metrics_fullref = ["psnr", "ssim"]
+metrics_noref = []
+metrics_det2d = []

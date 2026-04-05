@@ -1,0 +1,73 @@
+# DarkDriving -- Paper-exact reproduction config
+# Paper: arXiv 2603.18067 (ICRA 2026)
+
+[model]
+name = "retinexformer"
+in_channels = 3
+out_channels = 3
+embed_dim = 32
+num_blocks = 4            # IGT blocks
+num_heads = 4             # IG-MSA heads
+
+[data]
+dataset = "darkdriving"
+root = "/mnt/forge-data/datasets/darkdriving/"
+input_size = [512, 512]
+train_split = "train"
+test_split = "test"
+num_workers = 4
+pin_memory = true
+# Paper: 5,906 train pairs, 3,632 test pairs
+# Val split carved from train: 90/10
+
+[training]
+batch_size = 8
+learning_rate = 0.001
+epochs = 200
+optimizer = "adam"
+beta1 = 0.9
+beta2 = 0.999
+weight_decay = 0.0
+scheduler = "cosine"
+warmup_ratio = 0.05
+min_lr = 1e-6
+precision = "fp16"
+gradient_accumulation = 1
+max_grad_norm = 1.0
+seed = 42
+
+[loss]
+name = "l1"
+# Primary: L1 (MAE) between enhanced and ground-truth day image
+l1_weight = 1.0
+ssim_weight = 0.0
+lpips_weight = 0.0
+
+[augmentation]
+random_crop = true
+crop_size = [512, 512]
+random_rotation = true
+rotation_degrees = 90
+horizontal_flip = true
+flip_prob = 0.5
+
+[checkpoint]
+output_dir = "/mnt/artifacts-datai/checkpoints/project_darkdriving"
+save_every_n_steps = 500
+keep_top_k = 2
+metric = "val_psnr"
+mode = "max"
+
+[early_stopping]
+enabled = true
+patience = 20
+min_delta = 0.001
+
+[logging]
+log_dir = "/mnt/artifacts-datai/logs/project_darkdriving"
+tensorboard_dir = "/mnt/artifacts-datai/tensorboard/project_darkdriving"
+
+[evaluation]
+metrics_fullref = ["psnr", "ssim", "lpips"]
+metrics_noref = ["musiq", "niqe", "hyperiqa", "cnniqa"]
+metrics_det2d = ["ap50", "ap50_90"]
