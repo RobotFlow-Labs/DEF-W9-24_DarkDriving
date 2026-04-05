@@ -35,11 +35,11 @@ def find_optimal_batch(
     device_id: int = 0,
 ) -> int:
     device = torch.device(f"cuda:{device_id}")
-    total_mem = torch.cuda.get_device_properties(device).total_mem
-    target_bytes = int(total_mem * target_util)
+    total_memory = torch.cuda.get_device_properties(device).total_memory
+    target_bytes = int(total_memory * target_util)
 
     print(f"[BATCH FINDER] GPU: {torch.cuda.get_device_name(device)}")
-    print(f"[BATCH FINDER] Total VRAM: {total_mem / 1e9:.1f}GB")
+    print(f"[BATCH FINDER] Total VRAM: {total_memory / 1e9:.1f}GB")
     print(f"[BATCH FINDER] Target: {target_util*100:.0f}% = {target_bytes / 1e9:.1f}GB")
 
     model = get_model(
@@ -76,7 +76,7 @@ def find_optimal_batch(
             scaler.update()
 
             peak = torch.cuda.max_memory_allocated(device)
-            util = peak / total_mem
+            util = peak / total_memory
 
             print(f"  bs={bs:4d}  peak={peak/1e9:.2f}GB  util={util*100:.1f}%", end="")
 
@@ -112,7 +112,7 @@ def find_optimal_batch(
         loss = torch.nn.functional.l1_loss(out, target)
     scaler.scale(loss).backward()
     peak = torch.cuda.max_memory_allocated(device)
-    util = peak / total_mem
+    util = peak / total_memory
 
     del model, optimizer, scaler, x, target, out, loss
     torch.cuda.empty_cache()
@@ -120,7 +120,7 @@ def find_optimal_batch(
 
     print(
         f"\n[BATCH FINDER] Optimal batch_size={best_bs}"
-        f" ({util*100:.1f}% of {total_mem/1e9:.1f}GB)"
+        f" ({util*100:.1f}% of {total_memory/1e9:.1f}GB)"
     )
     return best_bs
 

@@ -29,6 +29,7 @@ from dark_driving.cuda_kernels import fused_l1_ssim_loss_cuda, fused_psnr_ssim_c
 from dark_driving.dataset import build_dataloaders
 from dark_driving.losses import build_loss
 from dark_driving.model import count_parameters, get_model
+from dark_driving.multi_dataset import build_multi_dataloaders
 from dark_driving.utils import (
     CheckpointManager,
     EarlyStopping,
@@ -84,20 +85,41 @@ def train_cuda(
     # Data
     input_size = tuple(data_cfg.get("input_size", [512, 512]))
     batch_size = train_cfg.get("batch_size", 8)
-    loaders = build_dataloaders(
-        root=data_cfg.get("root", "/mnt/forge-data/datasets/darkdriving/"),
-        input_size=input_size,
-        batch_size=batch_size,
-        num_workers=data_cfg.get("num_workers", 4),
-        pin_memory=data_cfg.get("pin_memory", True),
-        seed=seed,
-        augment_train=True,
-        crop_size=tuple(aug_cfg.get("crop_size", list(input_size))),
-        horizontal_flip=aug_cfg.get("horizontal_flip", True),
-        flip_prob=aug_cfg.get("flip_prob", 0.5),
-        random_rotation=aug_cfg.get("random_rotation", True),
-        rotation_degrees=aug_cfg.get("rotation_degrees", 90),
-    )
+    dataset_type = data_cfg.get("dataset", "darkdriving")
+
+    if dataset_type == "multi_source":
+        loaders = build_multi_dataloaders(
+            nuscenes_root=data_cfg.get(
+                "nuscenes_root", "/mnt/forge-data/datasets/nuscenes"
+            ),
+            kitti_root=data_cfg.get(
+                "kitti_root", "/mnt/forge-data/datasets/kitti"
+            ),
+            input_size=input_size,
+            batch_size=batch_size,
+            num_workers=data_cfg.get("num_workers", 4),
+            pin_memory=data_cfg.get("pin_memory", True),
+            seed=seed,
+            gamma_range=tuple(data_cfg.get("gamma_range", [2.0, 5.0])),
+            noise_std=data_cfg.get("noise_std", 0.02),
+        )
+    else:
+        loaders = build_dataloaders(
+            root=data_cfg.get(
+                "root", "/mnt/forge-data/datasets/darkdriving/"
+            ),
+            input_size=input_size,
+            batch_size=batch_size,
+            num_workers=data_cfg.get("num_workers", 4),
+            pin_memory=data_cfg.get("pin_memory", True),
+            seed=seed,
+            augment_train=True,
+            crop_size=tuple(aug_cfg.get("crop_size", list(input_size))),
+            horizontal_flip=aug_cfg.get("horizontal_flip", True),
+            flip_prob=aug_cfg.get("flip_prob", 0.5),
+            random_rotation=aug_cfg.get("random_rotation", True),
+            rotation_degrees=aug_cfg.get("rotation_degrees", 90),
+        )
 
     print(f"[BATCH] batch_size={batch_size}")
     print(f"[DATA] train={len(loaders['train'].dataset)} val={len(loaders['val'].dataset)}")

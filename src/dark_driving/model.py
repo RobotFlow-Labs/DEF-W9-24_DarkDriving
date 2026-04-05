@@ -84,8 +84,13 @@ class IlluminationEstimator(nn.Module):
 class IlluminationGuidedMSA(nn.Module):
     """Illumination-Guided Multi-head Self-Attention (IG-MSA).
 
-    Uses illumination representations to modulate attention scores,
-    directing the model to focus on regions with different lighting.
+    Uses TRANSPOSED attention (channel-wise, not spatial) matching the
+    actual Retinexformer implementation. Attention is computed over
+    head_dim channels with H*W spatial positions as the sequence —
+    yielding a (d, d) attention matrix instead of (H*W, H*W).
+
+    This keeps memory O(C^2) instead of O((H*W)^2), making 512x512
+    inputs feasible on 23GB GPUs.
     """
 
     def __init__(self, dim: int, num_heads: int = 4):
@@ -104,8 +109,9 @@ class IlluminationGuidedMSA(nn.Module):
         b, c, h, w = x.shape
 
         qkv = self.qkv(x)
+        # Reshape to (3, B, heads, d, H*W) for TRANSPOSED attention
         qkv = rearrange(
-            qkv, "b (three heads d) h w -> three b heads (h w) d",
+            qkv, "b (three heads d) h w -> three b heads d (h w)",
             three=3, heads=self.num_heads,
         )
         q, k, v = qkv[0], qkv[1], qkv[2]
@@ -113,17 +119,19 @@ class IlluminationGuidedMSA(nn.Module):
         # Illumination guidance: modulate keys with illumination features
         illu = self.illu_proj(illu_feat)
         illu = rearrange(
-            illu, "b (heads d) h w -> b heads (h w) d",
+            illu, "b (heads d) h w -> b heads d (h w)",
             heads=self.num_heads,
         )
         k = k + illu  # additive illumination guidance
 
+        # Transposed attention: (d, H*W) x (H*W, d) -> (d, d) — small!
         attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
         attn = f.softmax(attn, dim=-1)
 
+        # (d, d) x (d, H*W) -> (d, H*W)
         out = torch.matmul(attn, v)
         out = rearrange(
-            out, "b heads (h w) d -> b (heads d) h w",
+            out, "b heads d (h w) -> b (heads d) h w",
             h=h, w=w,
         )
         return self.proj(out)
@@ -249,17 +257,21 @@ class SNRAwareBlock(nn.Module):
         # Estimate SNR map (0=low SNR, 1=high SNR)
         snr_map = self.snr_conv(x)  # (B, 1, H, W)
 
-        # Long-range path
+        # Long-range path (transposed attention — channel-wise)
         x_norm = self.norm_long(x)
         qkv = self.qkv(x_norm)
         qkv = rearrange(
-            qkv, "b (three heads d) h w -> three b heads (h w) d",
+            qkv, "b (three heads d) h w -> three b heads d (h w)",
             three=3, heads=self.num_heads,
         )
         q, k, v = qkv[0], qkv[1], qkv[2]
-        attn = f.softmax(torch.matmul(q, k.transpose(-2, -1)) * self.scale, dim=-1)
+        attn = f.softmax(
+            torch.matmul(q, k.transpose(-2, -1)) * self.scale, dim=-1
+        )
         long_out = torch.matmul(attn, v)
-        long_out = rearrange(long_out, "b heads (h w) d -> b (heads d) h w", h=h, w=w)
+        long_out = rearrange(
+            long_out, "b heads d (h w) -> b (heads d) h w", h=h, w=w
+        )
         long_out = self.proj_long(long_out)
 
         # Short-range path
