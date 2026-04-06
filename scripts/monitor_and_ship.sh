@@ -4,7 +4,7 @@
 
 MODULE_DIR="/mnt/forge-data/modules/05_wave9/24_DarkDriving"
 PID_FILE="/mnt/artifacts-datai/logs/project_darkdriving/train.pid"
-LOG_FILE="/mnt/artifacts-datai/logs/project_darkdriving/train_20260405_0927.log"
+LOG_FILE="/mnt/artifacts-datai/logs/project_darkdriving/train_20260405_1115.log"
 CKPT_DIR="/mnt/artifacts-datai/checkpoints/project_darkdriving"
 EXPORT_DIR="/mnt/artifacts-datai/exports/project_darkdriving"
 
